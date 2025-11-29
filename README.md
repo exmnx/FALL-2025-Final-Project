@@ -6,7 +6,7 @@ Project Contents Folder:
 * Project App
 
 
-The Data: 
+**The Data**: 
 The example data used to model the app, is a dataset from kaggle: Germany City Rainfall Data. This dataset specifically contains 10 variables and 1080 observations based on weather and climate statistics from major cities in Germany. There are also 10 cities included with dates ranging from 2015-2023. Factors studied in this set include various quantitative variables, and categorical variables that were later encoded as factors. Such variables are listed below along with the dataset website. 
 
     City: Name of the city.

@@ -1,0 +1,547 @@
+---
+title: "German_rainfall"
+author: "Emily Mendez"
+date: "11/25/2025"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+#knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(zoo)
+```
+
+
+if date range is jan 02-31 chart doesnt include january to include it include 1 ; created new variable dates. 
+
+
+
+```{r}
+#Strings as Factors true
+data23=read.csv("/Users/admin/Documents/Projects/Rainfall_Data.csv",stringsAsFactors = T)
+data23
+
+
+data23$dates=as.yearmon(paste(data23$Year, data23$Month), "%Y %m")
+```
+
+```{r}
+sum(is.na(data23))
+
+```
+
+```{r}
+head(data23)
+```
+
+```{r}
+summary(data23)
+```
+
+```{r}
+#Encode time variables
+str(data23)
+```
+
+```{r}
+data23$dates=as.yearmon(paste(data23$Year, data23$Month), "%Y %m")
+
+```
+
+
+```{r}
+
+data23 %>% 
+  group_by(City,Year) %>% 
+  summarise(meanRainfall=mean(Rainfall..mm.))
+
+```
+
+```{r}
+    #   msgs <- apply(messageData, 1, function(row) {
+      #      messageItem(from = row[["from"]], message = row[["message"]])
+       # })
+
+
+input$SideBar_Names
+
+
+   #box(width=12,
+                         #   div(style="height:50px; font-size:20px;",
+                          #      paste("Cities on the map:",paste(unique(data23$City),collapse = ", "))))
+
+```
+
+
+```{r}
+pchMonth=substr(format(data23$dates, "%b"),1,2)
+```
+
+#222D32
+
+```{r}
+
+#by city and by year
+
+berIndx=which(data23$City=="Berlin")
+
+ggplot(data23[berIndx,])+
+  aes(x=dates,Rainfall..mm.)+
+  geom_line()+
+  geom_text(aes(label =pchMonth[berIndx],color=(factor(pchMonth[berIndx]))),vjust=-1) 
+
+```
+
+
+```{r}
+library(corrplot)
+corData=cor(data23[,-c(1,8,11)])
+corrplot(corData,method="circle",type="upper",
+         title="Correlation Matrix",
+         mar=c(0,0,2,0))
+corData
+```
+
+```{r}
+melty=melt(corData)
+var1=melty[abs(melty$value)>0.6,]
+
+indxw=attributes(var1)$row.names[which(var1$value<1)]
+
+melty$Var2[indxw][1]
+
+#var1
+
+```
+
+```{r}
+knitr::kable(corData,format="markdown")
+```
+
+
+```{r}
+
+library(leaflet)
+
+leaflet(data23) %>% 
+  addTiles() %>% 
+  addMarkers(lng = data23$Longitude, lat=data23$Latitude, popup=data23$City)
+
+```
+
+`
+
+
+```{r}
+library(giscoR)
+germany_counties <- gisco_get_nuts(
+  year = "2021", #only 2016,2021, 2024 available, data from 2015-2023, most recent
+  epsg = "4326", #gets coordinates
+  resolution = "10",
+  country = "DE", 
+  nuts_level = "3" #regions
+)
+```
+
+
+
+```{r}
+Elevation_mm=data23$Elevation..m.
+ggplot()+
+  geom_sf(data=germany_counties,color = "black",fill="white")+
+  geom_point(data=data23,size=5,shape = 16, fill = NA,
+             aes(data23$Longitude,data23$Latitude,color=Elevation_mm))+
+  scale_color_viridis_c()+
+  coord_sf()+
+  labs(title = "Elevation in 10 German Cities", x = "Longitude", y = "Latitude", fill = "Elevation (meters)")
+
+```
+
+
+
+```{r}
+indicatorNames=colnames(data23[,-11])
+indicatorInfo=c("Name of the city","City's latitude in degrees","City's longitude in degrees","The month number (1-12)",
+                "The year of the data","Rainfall amount in millimeters","City’s elevation above sea level in meters",
+                "The climate classification of the city", "Average temperature for the month in Celsius",
+                "Average humidity level for the month in percentage")
+indicator=cbind(indicatorNames,indicatorInfo)
+colnames(indicator)=c("Variables","Description")
+
+knitr::kable(indicator,format="markdown")
+
+
+```
+
+
+
+
+
+```{r}
+library(sf)
+library(rnaturalearth)
+library(rnaturalearthdata)
+
+point=st_as_sf(as.data.frame(data23[,c(2,3)]),coords = c("Longitude","Latitude"),crs=4326)
+poinInter=st_transform(point,3035)
+bounds=ne_countries(scale = "medium",returnclass = "sf")
+germany=bounds[bounds$name=="Germany",]
+```
+
+```{r}
+gridG=st_as_sf(grid, coords = c("Longitude", "Latitude"), crs = 4326)
+
+inside <- lengths(st_within(gridG, germany)) > 0
+gridG <- gridG[inside, ]
+
+coords <- st_coordinates(gridG)
+pred_df <- data.frame(Longitude = coords[,1], Latitude = coords[,2])
+
+
+
+gridG$Elevation <- predict(gam_fit, newdata = pred_df)
+
+
+```
+
+```{r}
+coordinates=as.data.frame(st_coordinates(gridG))
+
+gridG$Longitude=coordinates$X
+gridG$Latitude=coordinates$Y
+
+ggplot() +
+  geom_raster(data=gridG,aes(Longitude,Latitude,fill=Elevation)) +
+  geom_sf(data=germany,color = "white",fill=NA)+
+  geom_contour_filled()+
+  scale_fill_viridis_c() +
+  labs(title = "Elevation in Switzerland", x = "Longitude", y = "Latitude", fill = "Elevation (meters)")
+
+
+
+```
+```{r}
+
+
+gam_fit <- gam(Elevation..m. ~ s(Longitude, Latitude, k = 10), data = data23)
+
+lon.seq <- seq(st_bbox(bounds)['xmin'], st_bbox(bounds)['xmax'], length.out = 100)
+lat.seq <- seq(st_bbox(bounds)['ymin'], st_bbox(bounds)['ymax'], length.out = 100)
+grid <- expand.grid(Longitude = lon.seq, Latitude = lat.seq)
+
+#grid$Elevation <- predict(gam_fit, newdata = grid)
+
+```
+
+
+```{r}
+
+
+valueBox(paste(round(mean(data23$Temperature...C.),1),"\u00B0C"),
+                                "Total Mean Temperature",icon=icon("temperature-low")),
+                       valueBox(paste(round(mean(data23$Rainfall..mm.),1),"mm"),"Total Mean Rainfall",
+                                icon=icon("cloud-showers-heavy")),
+                       valueBox(round(mean(data23$Humidity....),1),
+                                "Total Mean Humidity",icon=icon("cloud"))
+                    ),
+
+
+  fluidRow(
+                         div(style = "text-align: center;",
+                         actionButton("RenderRainPlot", "Go",icon=icon("play", style="color:black; opacity:0.8;"))
+                     ))
+
+```
+
+```{r}
+if ( ){
+             output$RainfallCityPlot=renderPlot({
+                 cityIndx=which(data23$City==input$CityChoose)
+                 dataTemp=data23[cityIndx,] %>% 
+                     filter(data23$dates>=as.Date(input$DateRange[1]),
+                            data23$dates<=as.Date(input$DateRange[2]))
+                 minyear=as.Date(input$DateRange[1])
+                 minyr=format(minyear,"%Y")
+                 maxyear=as.Date(input$DateRange[2])
+                 maxyear=format(maxyear,"%Y")
+                 
+                 pchMonth=substr(format(dataTemp$dates, "%b"),1,2)
+                 
+                 ggplot(dataTemp)+
+                     aes(x=dates,Rainfall..mm.,color=City)+
+                     geom_line()
+                     geom_text(aes(label = pchMonth[cityIndx],color=(factor(pchMonth[cityIndx]))),vjust=-1) +
+                     ggtitle(paste0(City,"Rainfall over ",minyr,"-",maxyear))
+             })}
+```
+
+
+
+
+```{r}
+  output$RainfallCityPlot=renderPlot({
+        pchMonth=substr(format(data23$dates, "%b"),1,2)
+        data23$PchVal=pchMonth[1:length(data23$City)]
+        
+        Datasub=data23 %>% 
+            filter(City=="Berlin")
+        
+        ggplot(Datasub)+
+            aes(x=dates,Rainfall..mm.)+
+            geom_line()+
+            geom_text(aes(label = PchVal,color=(factor(PchVal))),vjust=-1)+
+            ggtitle(paste0(Datasub$City[1]," Rainfall over ",min(Datasub$Year),"-",max(Datasub$Year)))
+    })
+    
+
+
+
+
+  output$RainfallCityPlot=renderPlot({
+        minyear=input$DateRange[1]
+        minyr=format(minyear,"%Y")
+        maxyear=input$DateRange[2]
+        maxyear=format(maxyear,"%Y")
+        pchMonth=substr(format(dataTemp$dates, "%b"),1,2)
+        dataTemp$pchM=pchMonth[1:length(dataTemp$dates)]
+            
+        ggplot(dataTemp)+
+            aes(x=dates,y=Rainfall..mm.)+
+            geom_line()+
+            geom_text(aes(label =pchM ,color=(factor(pchM))),vjust=-1) +
+            ggtitle(paste0(City,"Rainfall over ",minyr,"-",maxyear)
+                    
+                    
+                     dataTemp=data23[which(data23$City==input$CityChoose),] %>% 
+            filter(data23$dates>=as.Date(input$DateRange[1]),
+                   data23$dates<=as.Date(input$DateRange[2]))
+        print(dataTemp)
+```
+
+
+
+
+  output$RainfallCityPlot=renderPlot({
+            minyear=as.Date(input$DateRange[1])
+            minyr=format(minyear,"%Y")
+            maxyear=as.Date(input$DateRange[2])
+            maxyear=format(maxyear,"%Y")
+            pchMonth=substr(format(dataTemp$dates, "%b"),1,2)
+            dataTemp$pchM=pchMonth[1:length(dataTemp$dates)]
+            monthLetter=factor(pchM)
+            
+            ggplot(dataTemp)+
+                aes(x=dates,y=Rainfall..mm.)+
+                geom_line()+
+                geom_text(aes(label =pchM ,color=(monthLetter),vjust=-1)) +
+                ggtitle(paste0(dataTemp$City[1],"Rainfall over ",minyr,"-",maxyear))
+            })
+
+```{r}
+  ggplot(data23[])+
+        aes(x=dates,y=Rainfall..mm.)+           
+        geom_line()+
+        geom_text(aes(label =pchM ,color=(monthLetter),vjust=-1)) +
+        ggtitle(paste0(dataTemp$City[1],"Rainfall over ",minyr,"-",maxyear))
+```
+
+
+```{r}
+ggplot(data23[which(data23$City=="Berlin"),])+
+  aes(Year,Rainfall..mm.)+
+  geom_point()
+```
+
+
+```{r}
+ggplot(data23)+
+  aes(data23$Temperature...C.,data23$Humidity....)+
+ # geom_errorbar(aes(ymin=mean(Temperature...C.)-sd(Temperature...C.), 
+  #                  ymax=mean(Temperature...C.)+sd(Temperature...C.)))+
+  geom_boxplot()   
+  
+```
+
+temp: city, climate type
+rain: city, climate 
+
+```{r}
+  outputcorrBox=renderInfoBox(
+        melty=melt(corData),
+        melty2=melty[1>abs(melty$value)>0.6,],
+        valueBox(paste("The Variables with moderate to high correlation are: ",
+                       melty2$Var1," and ", melty2$var2),
+                           icon=icon("arrow-up-right-dots",style = "color:white; opacity:0.5;"),color="navy")
+    )
+    
+    valueBox(round(mean(clicker$Humidity),1), paste("Total Avg. Humidity of",clicker$City[1]), 
+             icon=icon("cloud",style = "color:white; opacity:0.5;"),color="navy")
+```
+
+
+```{r}
+
+x=c()
+
+for(i in colnames(data23)){
+  if(!is.null(levels(data23[,i]))){
+    x=c(x,i)
+  }}
+
+x[2]
+```
+
+
+```{r}
+dataTempMat=data23 %>% 
+  group_by(City) %>% 
+  summarise(AvgTemp=mean(Rainfall..mm.))
+
+dataTempMat
+```
+
+
+```{r}
+ggplot(dataTempMat)+
+          aes(City,AvgTemp,fill=City)+
+          geom_bar(stat = "identity")
+
+
+```
+
+
+
+
+```{r}
+
+ box(status = "primary",width = NULL,height=200,
+                                 selectInput("",label = "Choose a Variable to model as the response:",
+                                             choices = colnames(data23[,c(6,9,10)]))),
+                             
+                             box(status = "primary",height=200,
+                                 width = NULL, selectInput("", label = "Choose Variables to use as predictors ",
+                                                           choices = colnames(data23[,c(1,8)]))), 
+
+```
+
+
+```{r}
+
+  
+    output$DataChart=renderDT({
+      if (is.null(input$predictor)){
+        datatable(data23[,-11],options = list(lengthMenu = c(15, 20, 50, 70),scrollX=TRUE),
+                  rownames = FALSE)
+      }
+      else{
+        datatemp=data23[,-11]
+        datatable(datatemp[,c(input$response,input$predictor)],options = list(lengthMenu = c(15, 20, 50, 70),scrollX=TRUE),
+                  rownames = FALSE)
+      }
+    })
+
+```
+
+
+Model
+Diagnostics
+Prediction
+
+```{r}
+set.seed(123)
+indx=createDataPartition(data23$Rainfall..mm.,times=1,p=.7,list=FALSE)
+  train=data23[indx,-11]
+  test=data23[-indx,-11]
+
+```
+
+
+```{r}
+##Perfect mulicollinarity perfectly reconstruct the city dummies from the coordinates, which is why VIFs explode.
+#then City is essentially a categorical encoding of location, while longitude/latitude (and often elevation) are continuous encodings of the same thing
+lmoddr=lm(Rainfall..mm. ~.,data23[,-c(11,4,5)])
+summary(lmoddr)
+ols_vif_tol(lmoddr)
+ali=alias(lmos)$Complete
+
+
+lmos=lm(Rainfall..mm. ~ Humidity....,data23[,-c(11,4,5)])
+rownames(ali);colnames(ali)
+
+
+
+  rownames(ali)[,which(ali>1)]
+  indx=)
+        ,arr.ind = TRUE)
+
+
+  indx
+  rowq=rownames(ali)[indx[,1]]
+  colq=colnames(ali)[indx[,2]]
+  
+  cbind(rowq,colq)
+  table(cbind(rowq,colq))
+
+  importance=as.data.frame(varImp(lmos))
+  importance
+  
+ 
+  
+  as.formula(paste("City",'~1'))
+```
+
+
+```{r}
+ols_vif_tol(lmoddr)
+
+data34$rrr=data34$Rainfall..mm.
+data56=data34[,-c(7,3)]
+colnames(data34)
+lmod32=lm(Rainfall..mm.~Temperature...C.+Humidity....+Climate_Type,data=data34)
+
+ols_step_forward_p(lmod32)
+ols_step_both_p(lmoddr)
+
+
+alias()
+
+
+
+```
+
+```{r}
+data34=data23[,-c(11,1,4,5,8)] %>% 
+  mutate_all(~(scale(.) %>% as.vector))
+
+```
+
+```{r}
+  newPredictors = setdiff(input$predictor, input$response)
+         preds=paste(newPredictors, collapse = " + ")
+         lmodString=as.formula(paste(input$response,'~',preds))
+         resps=as.formula(paste(input$response,'~1'))
+         lmod1=lm(lmodString,data=train)
+         summary(lmod1)
+         
+         
+         
+         lmod2=lm(as.formula(paste(input$response, "~.")),data = train)
+         summary(lmod2)
+         
+         
+         
+          
+        else{
+
+          indx=which(abs(ali)>1,arr.ind = TRUE)
+          rowq=rownames(ali)[indx[,1]]
+          colq=colnames(ali)[indx[,2]]
+          cat("Frequency of Redundant Variables")
+          table(cbind(rowq,colq))
+        }
+```
+
+```{r}
+residsPlot
+```
+

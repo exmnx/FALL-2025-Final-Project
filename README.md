@@ -27,6 +27,7 @@ https://www.kaggle.com/datasets/heidarmirhajisadati/germany-city-rainfall-data/d
 The data will be used to explore the relationships between variables in order to determine which factors affect rainfall. We are also able to analyze how the rainfall and other factors change over time. 
 
 **The APP**:
-This app is a R shiny dashboard created for the purpose of conducting a simple statistical exploration on data. This dashboard specifically explored the data as shown above and allows the users full control of adjusting the inputs. This app has 3 main tabs on exploring rainfall insights of German cities or perhaps other response variables selected. You can explore the total average rainfall, Temperature, Humidity of cities using the plot allocated to elevation, or maybe explore rainfall, Temperature or Humidity throughout 2015-2023 or more specifically between months.  
+This app is a R shiny dashboard created for the purpose of conducting a simple statistical exploration on data. This dashboard specifically explored the data as shown above and allows the users full control of adjusting the inputs. This app has 3 main tabs on exploring rainfall insights of German cities or perhaps other response variables selected. You can explore the total average rainfall, Temperature, Humidity of cities using the plot allocated to elevation, or maybe explore rainfall, Temperature or Humidity throughout 2015-2023 or more particularly between months. Anyways explore the app to know more. 
+
 
 
